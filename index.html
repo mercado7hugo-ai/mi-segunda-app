@@ -1,36 +1,375 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GitHub: Let's build from here</title>
-    <link rel="stylesheet" href="styles.css">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+<title>Ordenador de imágenes, timeline y prompts</title>
+<style>
+:root{--bg:#f6f5f1;--card:#fff;--tx:#1d1d1b;--mu:#6b6a64;--bd:#e2e0d8;--ac:#d9531e;--ac2:#fff;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#161615;--card:#212120;--tx:#f0efea;--mu:#9b9a92;--bd:#34332f;--ac:#ff7a45;--ac2:#161615}}
+:root[data-theme="dark"]{--bg:#161615;--card:#212120;--tx:#f0efea;--mu:#9b9a92;--bd:#34332f;--ac:#ff7a45;--ac2:#161615}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);font:16px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+main{max-width:1200px;margin:0 auto;padding:24px 16px 60px}
+h1{font-size:1.6rem;margin:0 0 4px}
+.sub{color:var(--mu);margin:0 0 20px}
+.zones{display:grid;gap:14px;grid-template-columns:1fr}
+@media(min-width:760px){.zones{grid-template-columns:1fr 1fr}}
+.zone{background:var(--card);border:2px dashed var(--bd);border-radius:14px;padding:18px}
+.zone.drag{border-color:var(--ac)}
+.zone h2{font-size:1rem;margin:0 0 6px}
+.zone p{margin:0 0 10px;color:var(--mu);font-size:.9rem}
+button,.btn{font:inherit;cursor:pointer;border:1px solid var(--bd);background:var(--card);color:var(--tx);padding:8px 14px;border-radius:10px}
+button.pri{background:var(--ac);color:var(--ac2);border-color:var(--ac);font-weight:600}
+textarea{width:100%;font:inherit;font-size:.92rem;background:var(--bg);color:var(--tx);border:1px solid var(--bd);border-radius:10px;padding:10px;resize:vertical}
+.bar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:22px 0 14px}
+.bar .sp{flex:1}
+.stat{color:var(--mu);font-size:.9rem;font-weight:600}
+.grid{display:grid;gap:16px;grid-template-columns:repeat(auto-fill,minmax(320px,1fr))}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:14px;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 2px 6px rgba(0,0,0,0.04)}
+.imgw{position:relative;background:var(--bg);min-height:180px;display:flex;align-items:center;justify-content:center}
+.imgw img{display:block;width:100%;aspect-ratio:16/9;object-fit:cover}
+.ph{aspect-ratio:16/9;display:flex;align-items:center;justify-content:center;color:var(--mu);font-weight:600}
+.tag{position:absolute;top:8px;right:8px;background:#c0392b;color:#fff;font-size:.78rem;font-weight:700;border-radius:8px;padding:2px 10px}
+.time-badge{position:absolute;bottom:8px;right:8px;background:rgba(0,0,0,0.75);color:#fff;font-size:.75rem;border-radius:6px;padding:2px 8px;font-family:monospace}
+.num{position:absolute;top:8px;left:8px;background:var(--ac);color:var(--ac2);font-weight:700;border-radius:8px;padding:2px 10px}
+.body{padding:12px;display:flex;flex-direction:column;gap:8px}
+.fn{font-size:.78rem;color:var(--mu);overflow-wrap:anywhere}
+.narrative{background:color-mix(in srgb, var(--bd) 30%, transparent);border-left:3px solid var(--ac);padding:6px 10px;font-size:.85rem;border-radius:0 6px 6px 0;margin-bottom:4px}
+.prompt-txt{font-size:.88rem;color:var(--tx);white-space:pre-wrap;word-break:break-word}
+.empty{color:var(--mu);text-align:center;padding:40px 10px}
+</style>
 </head>
 <body>
-    <header>
-        <nav>
-            <div class="logo">GitHub</div>
-            <ul>
-                <li><a href="#product">Product</a></li>
-                <li><a href="#solutions">Solutions</a></li>
-                <li><a href="#pricing">Pricing</a></li>
-            </ul>
-        </nav>
-    </header>
+<main>
+<h1>Ordenador de imágenes, guion y prompts</h1>
+<p class="sub">Sube tus imágenes numeradas (1, 2, 001...) y el guion o prompts con marcas de tiempo (ej. <i>Imagen 001 00:00.0 → 00:06.5</i>).</p>
 
-    <main>
-        <section class="hero-section">
-            <h1>Let's build from here</h1>
-            <p>Harnessed for productivity. Designed for collaboration.</p>
-            <form>
-                <input type="email" placeholder="Email address">
-                <button type="submit">Sign up for GitHub</button>
-            </form>
-        </section>
-    </main>
+<div class="zones">
+  <div class="zone" id="z1">
+    <h2>1. Imágenes</h2>
+    <p>Arrastra imágenes o carpeta. El número se extrae del nombre: <b>1.png</b>, <b>img (12).jpg</b>, <b>005.webp</b>.</p>
+    <button class="pri" id="bf">Elegir archivos</button>
+    <button id="bd">Elegir carpeta</button>
+    <input type="file" id="fi" multiple accept="image/*" hidden>
+    <input type="file" id="fd" webkitdirectory multiple hidden>
+  </div>
+  <div class="zone" id="z2">
+    <h2>2. Guion / Prompts</h2>
+    <p>Pega tu texto o sube un archivo (.docx / .txt). Soporta formato visual con timeline y narración.</p>
+    <textarea id="pt" rows="5" placeholder="Imagen 001 00:00.0 → 00:06.5&#10;Narración: Texto de la narración...&#10;Prompt: Un paisaje pintado a mano..."></textarea>
+    <p style="margin:8px 0 0"><button id="bt">Subir archivo (.docx o .txt)</button></p>
+    <input type="file" id="ft" accept=".txt,.docx" hidden>
+  </div>
+</div>
 
-    <footer>
-        <p>&copy; 2026 GitHub, Inc.</p>
-    </footer>
+<div class="bar">
+  <button class="pri" id="ord">Orden: Ascendente ↑</button>
+  <span class="stat" id="st">0 imágenes / 0 prompts</span>
+  <span class="sp"></span>
+  <button id="cp">Copiar todo ordenado</button>
+  <button id="dl">Descargar .txt</button>
+  <button id="cl">Limpiar todo</button>
+</div>
+
+<div class="grid" id="gr"></div>
+<div class="empty" id="em">Aún no se han cargado imágenes ni guion.</div>
+</main>
+
+<script>
+(function(){
+  var imagesMap = {}; 
+  var promptsMap = {}; 
+  var asc = true;
+
+  // Elementos DOM
+  var fi = document.getElementById('fi'),
+      fd = document.getElementById('fd'),
+      ft = document.getElementById('ft'),
+      bf = document.getElementById('bf'),
+      bd = document.getElementById('bd'),
+      bt = document.getElementById('bt'),
+      pt = document.getElementById('pt'),
+      gr = document.getElementById('gr'),
+      em = document.getElementById('em'),
+      st = document.getElementById('st'),
+      ord = document.getElementById('ord'),
+      cp = document.getElementById('cp'),
+      dl = document.getElementById('dl'),
+      cl = document.getElementById('cl');
+
+  // Listeners de carga de archivos
+  bf.onclick = function(){ fi.click(); };
+  bd.onclick = function(){ fd.click(); };
+  bt.onclick = function(){ ft.click(); };
+
+  fi.onchange = function(e){ handleImages(e.target.files); };
+  fd.onchange = function(e){ handleImages(e.target.files); };
+  ft.onchange = function(e){ handleTextFile(e.target.files[0]); };
+
+  pt.oninput = function(){
+    parsePrompts(pt.value);
+    render();
+  };
+
+  ord.onclick = function(){
+    asc = !asc;
+    ord.textContent = 'Orden: ' + (asc ? 'Ascendente ↑' : 'Descendente ↓');
+    render();
+  };
+
+  cl.onclick = function(){
+    imagesMap = {};
+    promptsMap = {};
+    pt.value = '';
+    fi.value = '';
+    fd.value = '';
+    ft.value = '';
+    render();
+  };
+
+  cp.onclick = function(){
+    var txt = generateOrderedOutput();
+    if(!txt){ alert('No hay contenido para copiar.'); return; }
+    navigator.clipboard.writeText(txt).then(function(){
+      alert('¡Contenido ordenado copiado al portapapeles!');
+    });
+  };
+
+  dl.onclick = function(){
+    var txt = generateOrderedOutput();
+    if(!txt){ alert('No hay contenido para descargar.'); return; }
+    var blob = new Blob([txt], {type: 'text/plain;charset=utf-8'});
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'guion_y_prompts_ordenados.txt';
+    a.click();
+  };
+
+  // Procesar Imágenes
+  function handleImages(files){
+    if(!files) return;
+    Array.from(files).forEach(function(file){
+      if(!file.type.startsWith('image/')) return;
+      var num = extractNumber(file.name);
+      if(num !== null){
+        var url = URL.createObjectURL(file);
+        imagesMap[num] = { file: file, url: url, name: file.name, num: num };
+      }
+    });
+    render();
+  }
+
+  // Extraer número del nombre del archivo
+  function extractNumber(str){
+    var m = str.match(/(\d+)/);
+    return m ? parseInt(m[1], 10) : null;
+  }
+
+  // Procesar archivo de texto (.docx o .txt)
+  function handleTextFile(file){
+    if(!file) return;
+    if(file.name.endsWith('.docx')){
+      var reader = new FileReader();
+      reader.onload = function(e){
+        mammoth.extractRawText({arrayBuffer: e.target.result})
+          .then(function(res){
+            pt.value = res.value;
+            parsePrompts(res.value);
+            render();
+          });
+      };
+      reader.readAsArrayBuffer(file);
+    } else {
+      var reader = new FileReader();
+      reader.onload = function(e){
+        pt.value = e.target.result;
+        parsePrompts(e.target.result);
+        render();
+      };
+      reader.readAsText(file);
+    }
+  }
+
+  // Parser robusto de Guion, Timeline y Prompts
+  function parsePrompts(text){
+    promptsMap = {};
+    if(!text || !text.trim()) return;
+
+    // Split por bloques que comiencen por "Imagen X", "X.", "X)" o saltos dobles de línea
+    var regexBlock = /(?:^|\n)(?:Imagen\s*|\b)(\d{1,4})\b[\s\:\-]*((?:\d{2}:\d{2}[\.\d]*\s*→\s*\d{2}:\d{2}[\.\d]*)|\([\d\:\.\→\s]+\))?([\s\S]*?)(?=(?:\n(?:Imagen\s*|\b)\d{1,4}\b)|$)/gi;
+    var match;
+    var count = 0;
+
+    while((match = regexBlock.exec(text)) !== null){
+      var num = parseInt(match[1], 10);
+      var timecode = match[2] ? match[2].trim() : '';
+      var body = match[3] ? match[3].trim() : '';
+
+      // Separar opcionalmente la Narración del Prompt visual
+      var narration = '';
+      var promptText = body;
+
+      var narrMatch = body.match(/(?:Narración|Texto|Guion|V\.O\.|Audio)\s*:\s*([\s\S]*?)(?=(?:Prompt|Visual|Imagen)\s*:|$)/i);
+      var promptMatch = body.match(/(?:Prompt|Visual|Imagen)\s*:\s*([\s\S]*?)$/i);
+
+      if(narrMatch){
+        narration = narrMatch[1].trim();
+      }
+      if(promptMatch){
+        promptText = promptMatch[1].trim();
+      }
+
+      if(num && body){
+        promptsMap[num] = {
+          num: num,
+          timecode: timecode,
+          narration: narration,
+          prompt: promptText,
+          fullText: body
+        };
+        count++;
+      }
+    }
+
+    // Si no detectó patrón estructurado, asignar por líneas simples
+    if(count === 0){
+      var lines = text.split(/\n+/).map(function(l){ return l.trim(); }).filter(Boolean);
+      lines.forEach(function(line, idx){
+        var n = idx + 1;
+        promptsMap[n] = {
+          num: n,
+          timecode: '',
+          narration: '',
+          prompt: line,
+          fullText: line
+        };
+      });
+    }
+  }
+
+  // Renderizar Tarjetas
+  function render(){
+    gr.innerHTML = '';
+    
+    // Obtener todos los números únicos (de imágenes y prompts)
+    var imgKeys = Object.keys(imagesMap).map(Number);
+    var prmKeys = Object.keys(promptsMap).map(Number);
+    var allNums = Array.from(new Set(imgKeys.concat(prmKeys)));
+
+    allNums.sort(function(a,b){ return asc ? a - b : b - a; });
+
+    if(allNums.length === 0){
+      em.style.display = 'block';
+      st.textContent = '0 imágenes / 0 prompts';
+      return;
+    }
+
+    em.style.display = 'none';
+    st.textContent = imgKeys.length + ' imágenes / ' + prmKeys.length + ' prompts en guion';
+
+    allNums.forEach(function(num){
+      var imgData = imagesMap[num];
+      var prmData = promptsMap[num];
+
+      var card = document.createElement('div');
+      card.className = 'card';
+
+      // Zona de Imagen
+      var imgw = document.createElement('div');
+      imgw.className = 'imgw';
+
+      var numBadge = document.createElement('span');
+      numBadge.className = 'num';
+      numBadge.textContent = '#' + String(num).padStart(3, '0');
+      imgw.appendChild(numBadge);
+
+      if(imgData){
+        var imgEl = document.createElement('img');
+        imgEl.src = imgData.url;
+        imgEl.alt = imgData.name;
+        imgw.appendChild(imgEl);
+      } else {
+        var ph = document.createElement('div');
+        ph.className = 'ph';
+        ph.textContent = 'Sin imagen (Falta #' + num + ')';
+        imgw.appendChild(ph);
+
+        var missTag = document.createElement('span');
+        missTag.className = 'tag';
+        missTag.textContent = 'Falta Imagen';
+        imgw.appendChild(missTag);
+      }
+
+      if(prmData && prmData.timecode){
+        var timeBadge = document.createElement('span');
+        timeBadge.className = 'time-badge';
+        timeBadge.textContent = prmData.timecode;
+        imgw.appendChild(timeBadge);
+      }
+
+      card.appendChild(imgw);
+
+      // Zona de Texto y Guion
+      var body = document.createElement('div');
+      body.className = 'body';
+
+      if(imgData){
+        var fn = document.createElement('div');
+        fn.className = 'fn';
+        fn.textContent = 'Archivo: ' + imgData.name;
+        body.appendChild(fn);
+      }
+
+      if(prmData){
+        if(prmData.narration){
+          var narr = document.createElement('div');
+          narr.className = 'narrative';
+          narr.innerHTML = '<b>Narración:</b> ' + escapeHtml(prmData.narration);
+          body.appendChild(narr);
+        }
+
+        var prText = document.createElement('div');
+        prText.className = 'prompt-txt';
+        prText.textContent = prmData.prompt;
+        body.appendChild(prText);
+      } else {
+        var noPrm = document.createElement('div');
+        noPrm.className = 'fn';
+        noPrm.style.color = '#c0392b';
+        noPrm.textContent = '⚠️ Sin prompt/guion asignado.';
+        body.appendChild(noPrm);
+      }
+
+      card.appendChild(body);
+      gr.appendChild(card);
+    });
+  }
+
+  // Generar salida de texto limpia y ordenada
+  function generateOrderedOutput(){
+    var imgKeys = Object.keys(imagesMap).map(Number);
+    var prmKeys = Object.keys(promptsMap).map(Number);
+    var allNums = Array.from(new Set(imgKeys.concat(prmKeys)));
+    allNums.sort(function(a,b){ return asc ? a - b : b - a; });
+
+    if(allNums.length === 0) return '';
+
+    return allNums.map(function(num){
+      var prm = promptsMap[num];
+      var header = 'Imagen ' + String(num).padStart(3, '0') + (prm && prm.timecode ? ' ' + prm.timecode : '');
+      var body = prm ? prm.fullText : 'Sin texto de prompt registrado.';
+      return header + '\n' + body + '\n';
+    }).join('\n----------------------------------------\n\n');
+  }
+
+  function escapeHtml(text) {
+    return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  }
+
+})();
+</script>
 </body>
 </html>
